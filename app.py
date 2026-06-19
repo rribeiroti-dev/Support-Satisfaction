@@ -36,27 +36,43 @@ def init_db():
 @st.cache_resource
 def load_or_train_model():
     """
-    Treina um modelo simples de NLP do TensorFlow para fins de demonstração.
-    Em produção, você carregaria um modelo salvo.
+    Treina um modelo simples de NLP do TensorFlow.
+    Dataset expandido para lidar melhor com variações de palavras no MVP.
     """
-    # Dados de treinamento fictícios (0 = Negativo, 1 = Positivo)
-    vocab = ["excelente", "rápido", "bom", "prestativo", "resolveu", 
-             "demora", "péssimo", "ruim", "rude", "lento", "falta"]
     
+    # Base de conhecimento expandida
     X_train = [
-        "atendimento excelente e rápido", "analista muito prestativo", "resolveu meu problema",
-        "demora excessiva no suporte", "péssimo atendimento", "analista rude e lento"
+        # Exemplos Positivos (1)
+        "atendimento excelente e rápido",
+        "analista muito prestativo e educado",
+        "resolveu meu problema com facilidade",
+        "muito eficiente, super rápido e bem educado",
+        "ótimo suporte, direto ao ponto",
+        "perfeito, sem reclamações",
+        "bom atendimento",
+        
+        # Exemplos Negativos (0)
+        "demora excessiva no suporte",
+        "péssimo atendimento",
+        "analista rude e lento",
+        "demorou muito para iniciar atendimento e resolver",
+        "não resolveu o problema",
+        "muito ruim e ineficiente",
+        "falta de respeito e lentidão",
+        "suporte péssimo, demorou demais"
     ]
-    y_train = np.array([1, 1, 1, 0, 0, 0])
+    
+    y_train = np.array([1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0])
 
-    # Camada de vetorização de texto
-    vectorizer = tf.keras.layers.TextVectorization(max_tokens=50, output_sequence_length=5)
-    vectorizer.adapt(X_train)
+    # Aumentamos os tokens para abranger mais palavras
+    vectorizer = tf.keras.layers.TextVectorization(max_tokens=150, output_sequence_length=8)
+    X_train_tensor = tf.constant(X_train, dtype=tf.string)
+    vectorizer.adapt(X_train_tensor)
 
     # Construção do modelo sequencial
     model = tf.keras.Sequential([
         vectorizer,
-        tf.keras.layers.Embedding(input_dim=50, output_dim=16),
+        tf.keras.layers.Embedding(input_dim=150, output_dim=16),
         tf.keras.layers.GlobalAveragePooling1D(),
         tf.keras.layers.Dense(16, activation='relu'),
         tf.keras.layers.Dense(1, activation='sigmoid')
@@ -64,30 +80,28 @@ def load_or_train_model():
 
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     
-    # CORREÇÃO APLICADA: Converte a lista do Python para Tensor de Strings
-    X_train_tensor = tf.constant(X_train, dtype=tf.string)
-    model.fit(X_train_tensor, y_train, epochs=20, verbose=0)
+    # Aumentamos as épocas (epochs) para ele aprender com mais firmeza
+    model.fit(X_train_tensor, y_train, epochs=40, verbose=0)
     
     return model
 
 def analisar_feedback(texto, model):
     """Analisa o texto e retorna o sentimento e a sugestão de correção."""
-    # CORREÇÃO APLICADA: Transforma a entrada em tensor antes de prever
     texto_tensor = tf.constant([texto], dtype=tf.string)
     predicao = model.predict(texto_tensor, verbose=0)[0][0]
     
     confianca = float(predicao if predicao > 0.5 else 1 - predicao)
+    texto_lower = texto.lower()
     
     if predicao >= 0.5:
         sentimento = "Positivo"
         correcao = "Manter o padrão de excelência. Elogiar o analista."
     else:
         sentimento = "Negativo"
-        # Lógica simples baseada em regras para sugerir correções
-        texto_lower = texto.lower()
-        if "demora" in texto_lower or "lento" in texto_lower:
+        # Melhoria nas regras para capturar conjugações diferentes
+        if any(palavra in texto_lower for palavra in ["demora", "demorou", "lento", "lentidão"]):
             correcao = "Melhorar o SLA. Treinamento de gestão de tempo e priorização."
-        elif "rude" in texto_lower or "péssimo" in texto_lower:
+        elif any(palavra in texto_lower for palavra in ["rude", "péssimo", "respeito"]):
             correcao = "Feedback urgente. Treinamento de Soft Skills e empatia."
         else:
             correcao = "Analisar ticket detalhadamente para identificar o gargalo técnico."
@@ -131,8 +145,14 @@ with tab1:
                 conn.commit()
                 
             st.success("Avaliação registrada com sucesso!")
-            st.info(f"**Análise da IA:** Sentimento {sentimento} ({confianca:.1%} de confiança).")
-            st.warning(f"**Ação Recomendada:** {correcao}")
+            
+            # Formatação de cores no Streamlit baseada no sentimento
+            if sentimento == "Positivo":
+                st.info(f"**Análise da IA:** Sentimento {sentimento} ({confianca:.1%} de confiança).")
+                st.success(f"**Ação Recomendada:** {correcao}")
+            else:
+                st.error(f"**Análise da IA:** Sentimento {sentimento} ({confianca:.1%} de confiança).")
+                st.warning(f"**Ação Recomendada:** {correcao}")
 
 # --- TAB 2: Dashboard ---
 with tab2:
@@ -150,8 +170,6 @@ with tab2:
         col3.metric("Feedbacks para Correção", total_avaliacoes - positivas)
         
         st.markdown("### Últimos Registros")
-        
-        # CORREÇÃO APLICADA: Substituição de use_container_width por width='stretch'
         st.dataframe(df[['data_hora', 'analista', 'sentimento', 'correcao_sugerida']], use_container_width=True)
     else:
         st.write("Nenhuma avaliação registrada ainda.")
