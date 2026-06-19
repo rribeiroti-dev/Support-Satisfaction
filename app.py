@@ -152,7 +152,7 @@ with tab2:
         st.markdown("### Últimos Registros")
         
         # CORREÇÃO APLICADA: Substituição de use_container_width por width='stretch'
-        st.dataframe(df[['data_hora', 'analista', 'sentimento', 'correcao_sugerida']], width='stretch')
+        st.dataframe(df[['data_hora', 'analista', 'sentimento', 'correcao_sugerida']], use_container_width=True)
     else:
         st.write("Nenhuma avaliação registrada ainda.")
 
