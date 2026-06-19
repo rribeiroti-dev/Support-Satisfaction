@@ -12,8 +12,8 @@ Uma aplicação Fullstack desenvolvida em Python para avaliar o atendimento de a
 
 1. Clone este repositório:
    ```bash
-   git clone [https://github.com/SEU_USUARIO/suporte-ai.git](https://github.com/SEU_USUARIO/suporte-ai.git)
-   cd suporte-ai-eval
+   git clone [https://github.com/rribeiroti-dev/Support-Satisfaction.git](https://github.com/rribeiroti-dev/Support-Satisfaction.git)
+   cd Support-Satisfaction
 
    Crie um ambiente virtual (recomendado):
 
